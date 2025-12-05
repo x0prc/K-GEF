@@ -1,0 +1,19 @@
+[package]
+name = "fwapi"
+version = "0.0.1"
+edition = "2024"
+description = "HTTP API for firmware graph queries"
+publish = false
+
+[[bin]]
+name = "fwapi"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+axum = { workspace = true }
+tokio = { workspace = true }
+fwgraph = { path = "../fwgraph" }
+tracing = { workspace = true }
