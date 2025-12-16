@@ -15,12 +15,46 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    // unpack firmware images
     Unpack {
         #[arg(short, long)]
         input: PathBuf,
 
         #[arg(short, long)]
         out: PathBuf,
+    },
+
+    // index ELF binaries 
+    Index {
+        #[arg(short, long)]
+        root: PathBuf,
+    }, 
+
+    // export JSON via Ghidra
+    Analyze {
+        #[arg(short, long)]
+        root: PathBuf,
+
+        #[arg(short, long)]
+        analysis_out: PathBuf,
+    },
+
+    // build graph to Neo4j
+    LoadGraph {
+        #[arg(short = 'i', long)]
+        firmware_id: String,
+
+        #[arg(short, long)]
+        analysis_root: PathBuf,
+    },
+
+    // canned security queries
+    Query {
+        #[arg(short = 'i', long)]
+        firmware_id: String,
+
+        #[arg(short, long)]
+        kind: String
     },
 }
 
