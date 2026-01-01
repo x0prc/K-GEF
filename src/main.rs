@@ -58,3 +58,45 @@ enum Commands {
     },
 }
 
+#[tokio::main]
+async fn main() -> Result <()> {
+    init_tracing()?;
+
+    let cli = Cli::parse();
+
+    match cli.command {
+        Commands::Unpack {input, out} => cmd_unpack(&input, &out)?,
+        Commands::Index {root} => cmd_index(&root)?,
+        Commands::Analyze {root, analysis_out} => cmd_analyze(&root, &analysis_out)?,
+        Commands::LoadGraph {
+            firmware_id,
+            analysis_root,
+        } => cmd_load_graph(&firmware_id, &analysis_root).await?,
+        Commands::Query {firmware_id, kind} => cmd_query(&firmware_id, &kind).await?,
+    }
+
+    Ok (())
+
+}
+
+// Unpack : binwalk wrapper
+fn cmd_unpack(input: &PuthBuf, out: &PathBuf) -> Result<()> {
+    tracing::info!("Unpacking {:?} into {:?}", input, out);
+    
+    std::fs::create_dir_all(out).context("output directory creation failed")?,
+
+    let status = Command::new("binwalk")
+        .arg("-e")
+        .arg(input)
+        .current_dir(out)
+        .status()
+        .context("failed to run binwalk")?,
+
+    if !status.success() {
+        anyhow::bail!("binwalk exited with status: {status}");
+    }
+
+    tracing::info!("Unpack completed");
+    Ok(())
+}
+
