@@ -67,6 +67,7 @@ async fn main() -> Result <()> {
     match cli.command {
         Commands::Unpack {input, out} => cmd_unpack(&input, &out)?,
         Commands::Index {root} => cmd_index(&root)?,
+        Commands::Index { root } => fwgraph_firmware::firmware::index_binaries(&root)?,
         Commands::Analyze {root, analysis_out} => cmd_analyze(&root, &analysis_out)?,
         Commands::LoadGraph {
             firmware_id,
