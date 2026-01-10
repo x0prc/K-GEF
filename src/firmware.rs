@@ -12,7 +12,7 @@ pub struct BinaryInfo {
     pub size: u64,
 }
 
-pub fun unpack_firmware(input: &Path, out_dir: &Path) -> Result<()> {
+pub fn unpack_firmware(input: &Path, out_dir: &Path) -> Result<()> {
     std::fs::create_dir_all(out_dir)?;
 
     let status = std::process::Command::new("binwalk")
