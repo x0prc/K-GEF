@@ -5,8 +5,16 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use tracing_subscriber::EnvFilter;
 
+mod firmware;
+mod analysis;
+mod graph;
+use firmware::*;
+use analysis::*;
+use graph::*;
+
 #[derive(Parser, Debug)]
 #[command(name = "K-GEF", version = "0.1", author = "0xprc", about = "Knowledge-Graph Driven Firmware Analysis")]
+
 
 struct Cli {
     #[command(subcommand)]
@@ -15,7 +23,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    // unpack firmware images
+    /// Unpack a firmware image (binwalk) into an output directory
     Unpack {
         #[arg(short, long)]
         input: PathBuf,
@@ -24,80 +32,68 @@ enum Commands {
         out: PathBuf,
     },
 
-    // index ELF binaries 
+    /// Index ELF binaries in an extracted firmware tree
     Index {
         #[arg(short, long)]
         root: PathBuf,
-    }, 
+    },
 
-    // export JSON via Ghidra
+    /// Run Ghidra headless analysis and export JSON
     Analyze {
         #[arg(short, long)]
         root: PathBuf,
 
         #[arg(short, long)]
         analysis_out: PathBuf,
+
+        #[arg(short = 'g', long, default_value = "/opt/ghidra")]
+        ghidra_home: PathBuf,
     },
 
-    // build graph to Neo4j
-    LoadGraph {
-        #[arg(short = 'i', long)]
+    /// Build in-memory graph from analysis results
+    GraphBuild {
+        #[arg(short, long)]
         firmware_id: String,
 
         #[arg(short, long)]
-        analysis_root: PathBuf,
-    },
-
-    // canned security queries
-    Query {
-        #[arg(short = 'i', long)]
-        firmware_id: String,
-
-        #[arg(short, long)]
-        kind: String
+        analysis_dir: PathBuf,
     },
 }
 
 #[tokio::main]
-async fn main() -> Result <()> {
+async fn main() -> Result<()> {
     init_tracing()?;
 
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Unpack {input, out} => cmd_unpack(&input, &out)?,
-        Commands::Index {root} => cmd_index(&root)?,
-        Commands::Index { root } => fwgraph_firmware::firmware::index_binaries(&root)?,
-        Commands::Analyze {root, analysis_out} => cmd_analyze(&root, &analysis_out)?,
-        Commands::LoadGraph {
-            firmware_id,
-            analysis_root,
-        } => cmd_load_graph(&firmware_id, &analysis_root).await?,
-        Commands::Query {firmware_id, kind} => cmd_query(&firmware_id, &kind).await?,
+        Commands::Unpack { input, out } => unpack_firmware(&input, &out)?,
+        Commands::Index { root } => {
+            let binaries = index_binaries(&root)?;
+            println!("Found {} ELF binaries", binaries.len());
+        }
+        Commands::Analyze { 
+            root, 
+            analysis_out, 
+            ghidra_home 
+        } => analyze_all(&root, &analysis_out, ghidra_home.to_str().unwrap())?,
+        Commands::GraphBuild { 
+            firmware_id, 
+            analysis_dir 
+        } => {
+            let (graph, stats) = build_graph(&firmware_id, &analysis_dir)?;
+            let out_path = analysis_dir.join(format!("{}.graph.json", firmware_id));
+            std::fs::write(&out_path, serde_json::to_string_pretty(&graph)?)?;
+            println!("Graph saved: {} | {}", out_path.display(), stats.join(", "));
+        }
     }
 
-    Ok (())
-
-}
-
-// Unpack : binwalk wrapper
-fn cmd_unpack(input: &PuthBuf, out: &PathBuf) -> Result<()> {
-    tracing::info!("Unpacking {:?} into {:?}", input, out);
-    
-    std::fs::create_dir_all(out).context("output directory creation failed")?,
-
-    let status = Command::new("binwalk")
-        .arg("-e")
-        .arg(input)
-        .current_dir(out)
-        .status()
-        .context("failed to run binwalk")?,
-
-    if !status.success() {
-        anyhow::bail!("binwalk exited with status: {status}");
-    }
-
-    tracing::info!("Unpack completed");
     Ok(())
 }
 
+fn init_tracing() -> Result<()> {
+    let filter = EnvFilter::from_default_env()
+        .add_directive("fwgraph_firmware=info".parse().unwrap());
+    tracing_subscriber::fmt().with_env_filter(filter).init();
+    Ok(())
+}
