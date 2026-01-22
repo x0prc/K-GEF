@@ -58,6 +58,14 @@ enum Commands {
         #[arg(short, long)]
         analysis_dir: PathBuf,
     },
+
+    /// Apply Semantic tagging
+    GraphTag {
+        #[arg(short, long)]
+        firmware_id: String,
+        #[arg(short, long)]
+        analysis_dir: PathBuf,
+    },
 }
 
 #[tokio::main]
@@ -86,6 +94,10 @@ async fn main() -> Result<()> {
             std::fs::write(&out_path, serde_json::to_string_pretty(&graph)?)?;
             println!("Graph saved: {} | {}", out_path.display(), stats.join(", "));
         }
+        Commands::GraphTag { firmware_id: _, analysis_dir } => {
+            semantic_tag_analysis(&analysis_dir)?;
+            println!("Complete.");
+        }
     }
 
     Ok(())
@@ -95,5 +107,11 @@ fn init_tracing() -> Result<()> {
     let filter = EnvFilter::from_default_env()
         .add_directive("fwgraph_firmware=info".parse().unwrap());
     tracing_subscriber::fmt().with_env_filter(filter).init();
+    Ok(())
+}
+
+fn semantic_tag_analysis(analysis_dir: &PathBuf) -> Result<()> {
+    println!("Scanning...");
+    apply_tags_to_graph(&analysis_dir)?;
     Ok(())
 }
