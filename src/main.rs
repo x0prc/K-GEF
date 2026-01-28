@@ -63,9 +63,24 @@ enum Commands {
     GraphTag {
         #[arg(short, long)]
         firmware_id: String,
+
         #[arg(short, long)]
         analysis_dir: PathBuf,
     },
+
+    /// Run security queries
+    Query {
+        #[arg(short, long)]
+        firmware_id: String,
+
+        #[arg(value_enum)]  
+        query: QueryType,
+        
+        #[arg(short, long, default_value = "bolt://localhost:7687")]
+        neo4j_uri: String,
+},
+
+
 }
 
 #[tokio::main]
@@ -98,6 +113,10 @@ async fn main() -> Result<()> {
             semantic_tag_analysis(&analysis_dir)?;
             println!("Complete.");
         }
+        Commands::Query { firmware_id, query, neo4j_uri } => {
+            let graph = neo4j::connect(&neo4j_uri, "neo4j", "password").await?;
+            queries::run_query(graph, &firmware_id, &query.to_string().to_lowercase()).await?;
+        },
     }
 
     Ok(())
