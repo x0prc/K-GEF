@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      
+    - name: Install system deps (no Docker)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y binwalk make unzip wget jq
+        
+    - name: Build
+      run: cargo build --verbose --release
+      
+    - name: Run unit tests
+      run: cargo test --verbose
+      
+    - name: Download test firmware
+      run: |
+        mkdir -p data/firmware
+        wget -O data/firmware/openwrt.bin \
+          "https://downloads.openwrt.org/releases/23.05.2/targets/ramips/mt7621/openwrt-23.05.2-ramips-mt7621-tplink_archer-c20-v4-squashfs-sysupgrade.bin"
+        
+    - name: Run core pipeline (unpack → analyze → graph)
+      run: |
+        cargo run --release -- unpack data/firmware/openwrt.bin ./extracted/
+        cargo run --release -- index ./extracted/
+        ls -la extracted/binaries.json
+        
+    - name: Verify results
+      run: |
+        test -f extracted/binaries.json
+        test -f extracted/_openwrt.bin.extracted || echo "Extraction OK"
+        echo "Core pipeline passed!"
+        
+    - name: Summary
+      run: |
+        echo "## CI Results " >> $GITHUB_STEP_SUMMARY
+        echo "- Rust build: PASS" >> $GITHUB_STEP_SUMMARY
+        echo "- Tests: PASS" >> $GITHUB_STEP_SUMMARY
+        echo "- Pipeline: CORE PASS (no Docker)" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,32 @@
+name: Release Binary
+on:
+  push:
+    tags: ['v*']
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      
+    - name: Build
+      run: cargo build --release
+      
+    - name: Create Release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release create "${{ github.ref_name }}" \
+          --title "fwcli ${{ github.ref_name }}" \
+          --notes "Firmware analysis tool release" \
+          target/release/fwcli
+        
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: fwcli-${{ github.ref_name }}-linux
+        path: target/release/fwcli
